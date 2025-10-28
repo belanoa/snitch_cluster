@@ -56,8 +56,8 @@ module ${cfg['cluster']['name']}_wrapper (
   output ${cfg['cluster']['name']}_pkg::wide_in_resp_t      wide_in_resp_o,
   output ${cfg['cluster']['name']}_pkg::narrow_out_req_t    narrow_ext_req_o,
   input  ${cfg['cluster']['name']}_pkg::narrow_out_resp_t   narrow_ext_resp_i,
-  input  ${cfg['cluster']['name']}_pkg::tcdm_dma_req_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_req_i,
-  output ${cfg['cluster']['name']}_pkg::tcdm_dma_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_resp_o
+  input  ${cfg['cluster']['name']}_pkg::tcdm_ext_req_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_req_i,
+  output ${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_resp_o
 );
 
   localparam int unsigned NumIntOutstandingLoads [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_loads')}};
@@ -76,6 +76,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .PhysicalAddrWidth (${cfg['cluster']['addr_width']}),
     .NarrowDataWidth (${cfg['cluster']['data_width']}),
     .WideDataWidth (${cfg['cluster']['dma_data_width']}),
+    .ExtDataWidth (${cfg['cluster']['ext_data_width']}),
     .NarrowIdWidthIn (${cfg['cluster']['name']}_pkg::NarrowIdWidthIn),
     .WideIdWidthIn (${cfg['cluster']['name']}_pkg::WideIdWidthIn),
     .NarrowUserWidth (${cfg['cluster']['name']}_pkg::NarrowUserWidth),
@@ -93,6 +94,8 @@ module ${cfg['cluster']['name']}_wrapper (
     .wide_in_resp_t (${cfg['cluster']['name']}_pkg::wide_in_resp_t),
     .tcdm_dma_req_t (${cfg['cluster']['name']}_pkg::tcdm_dma_req_t),
     .tcdm_dma_rsp_t (${cfg['cluster']['name']}_pkg::tcdm_dma_rsp_t),
+    .tcdm_ext_req_t (${cfg['cluster']['name']}_pkg::tcdm_ext_req_t),
+    .tcdm_ext_rsp_t (${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t),
     .NrHives (${cfg['cluster']['nr_hives']}),
     .NrCores (${cfg['cluster']['nr_cores']}),
     .TCDMDepth (${cfg['cluster']['tcdm']['depth']}),

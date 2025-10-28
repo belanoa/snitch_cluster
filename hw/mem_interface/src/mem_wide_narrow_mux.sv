@@ -25,6 +25,8 @@ module mem_wide_narrow_mux #(
   parameter int unsigned NarrowDataWidth = 0,
   /// Width of wide data.
   parameter int unsigned WideDataWidth   = 0,
+  /// Width of external data.
+  parameter int unsigned ExtDataWidth    = 0,
   /// Latency of upstream memory port.
   parameter int unsigned MemoryLatency   = 1,
   /// Request type of narrow inputs.
@@ -35,28 +37,45 @@ module mem_wide_narrow_mux #(
   parameter type mem_wide_req_t          = logic,
   /// Response type of wide inputs.
   parameter type mem_wide_rsp_t          = logic,
+  /// Request type of external inputs.
+  parameter type mem_ext_req_t           = logic,
+  /// Response type of external inputs.
+  parameter type mem_ext_rsp_t           = logic,
   /// Derived. *Do not override*
   /// Number of narrow inputs.
-  parameter int unsigned NrPorts = WideDataWidth / NarrowDataWidth
+  parameter int unsigned NrPorts    = WideDataWidth / NarrowDataWidth,
+  parameter int unsigned NrExtPorts = WideDataWidth / ExtDataWidth
 ) (
-  input  logic                          clk_i,
-  input  logic                          rst_ni,
+  input  logic                             clk_i,
+  input  logic                             rst_ni,
   // Inputs
   /// Narrow side.
-  input  mem_narrow_req_t [NrPorts-1:0] in_narrow_req_i,
-  output mem_narrow_rsp_t [NrPorts-1:0] in_narrow_rsp_o,
+  input  mem_narrow_req_t [NrPorts-1:0]    in_narrow_req_i,
+  output mem_narrow_rsp_t [NrPorts-1:0]    in_narrow_rsp_o,
   /// Wide side.
-  input  mem_wide_req_t                 in_wide_req_i,
-  output mem_wide_rsp_t                 in_wide_rsp_o,
+  input  mem_wide_req_t                    in_wide_req_i,
+  output mem_wide_rsp_t                    in_wide_rsp_o,
   /// External side.
-  input  mem_wide_req_t                 in_ext_req_i,
-  output mem_wide_rsp_t                 in_ext_rsp_o,
+  input  mem_ext_req_t    [NrExtPorts-1:0] in_ext_req_i,   // Use the last 2 addr bits to determine the strb
+  output mem_ext_rsp_t    [NrExtPorts-1:0] in_ext_rsp_o,
   // Multiplexed output.
-  output mem_narrow_req_t [NrPorts-1:0] out_req_o,
-  input  mem_narrow_rsp_t [NrPorts-1:0] out_rsp_i
+  output mem_narrow_req_t [NrPorts-1:0]    out_req_o,
+  input  mem_narrow_rsp_t [NrPorts-1:0]    out_rsp_i
 );
 
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
+  localparam int unsigned ExtAddrSurplusBits = $clog2(WideDataWidth/ExtDataWidth);
+  localparam int unsigned NrPortsExt = ExtDataWidth/NarrowDataWidth;
+
+  logic any_ext_req;
+
+  always_comb begin
+    any_ext_req = 1'b0;
+
+    for (int unsigned i = 0; i < NrExtPorts; i++) begin
+      any_ext_req |= in_ext_req_i[i].q_valid;
+    end
+  end
 
   always_comb begin
     // ----------------
@@ -71,7 +90,7 @@ module mem_wide_narrow_mux #(
     // word within the wide input port.
     for (int i = 0; i < NrPorts; i++) begin
       in_wide_rsp_o.p[i*NarrowDataWidth+:NarrowDataWidth] = out_rsp_i[i].p.data;
-      in_ext_rsp_o.p[i*NarrowDataWidth+:NarrowDataWidth]  = out_rsp_i[i].p.data;
+      in_ext_rsp_o[i/NrPortsExt].p[(i%NrPortsExt)*NarrowDataWidth+:NarrowDataWidth]  = out_rsp_i[i].p.data;
     end
 
     // ---------------
@@ -83,7 +102,10 @@ module mem_wide_narrow_mux #(
 
     // Tie-off wide and ext by default.
     in_wide_rsp_o.q_ready = 1'b0;
-    in_ext_rsp_o.q_ready  = 1'b0;
+
+    for (int unsigned i = 0; i < NrExtPorts; i++) begin
+      in_ext_rsp_o[i].q_ready  = 1'b0;
+    end
 
     // The wide port has the highest priority
     if (in_wide_req_i.q_valid) begin
@@ -103,21 +125,21 @@ module mem_wide_narrow_mux #(
         // immediately (at least when `in_wide_req_i.q_valid` is high).
         in_wide_rsp_o.q_ready = 1'b1;
       end
-    end else if (in_ext_req_i.q_valid) begin // The ext port has the second highest priority
+    end else if (any_ext_req) begin // The ext port has the second highest priority
       for (int i = 0; i < NrPorts; i++) begin
-        out_req_o[i].q_valid = in_ext_req_i.q_valid;
+        out_req_o[i].q_valid = in_ext_req_i[i/NrPortsExt].q_valid;
         // Block access from narrow ports.
         in_narrow_rsp_o[i].q_ready = 1'b0;
         out_req_o[i].q = '{
-          addr: in_ext_req_i.q.addr,
-          write: in_ext_req_i.q.write,
+          addr: in_ext_req_i[i/NrPortsExt].q.addr,
+          write: in_ext_req_i[i/NrPortsExt].q.write,
           amo: reqrsp_pkg::AMONone,
-          data: in_ext_req_i.q.data[i*NarrowDataWidth+:NarrowDataWidth],
-          strb: in_ext_req_i.q.strb[i*NarrowStrbWidth+:NarrowStrbWidth],
-          user: in_ext_req_i.q.user
+          data: in_ext_req_i[i/NrPortsExt].q.data[(i%NrPortsExt)*NarrowDataWidth+:NarrowDataWidth],
+          strb: in_ext_req_i[i/NrPortsExt].q.strb[(i%NrPortsExt)*NarrowStrbWidth+:NarrowStrbWidth],
+          user: in_ext_req_i[i/NrPortsExt].q.user
         };
 
-        in_ext_rsp_o.q_ready = 1'b1;
+        in_ext_rsp_o[i/NrPortsExt].q_ready = 1'b1;
       end
     end
   end

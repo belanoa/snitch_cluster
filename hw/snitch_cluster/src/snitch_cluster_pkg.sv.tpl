@@ -50,6 +50,7 @@ package ${cfg['cluster']['name']}_pkg;
   localparam int unsigned AddrWidth = ${cfg['cluster']['addr_width']};
   localparam int unsigned NarrowDataWidth = ${cfg['cluster']['data_width']};
   localparam int unsigned WideDataWidth = ${cfg['cluster']['dma_data_width']};
+  localparam int unsigned ExtDataWidth = ${cfg['cluster']['ext_data_width']};
 
   localparam int unsigned NarrowIdWidthIn = ${cfg['cluster']['id_width_in']};
   localparam int unsigned NrNarrowMasters = 3;
@@ -88,6 +89,8 @@ package ${cfg['cluster']['name']}_pkg;
   typedef logic [NarrowDataWidth/8-1:0] strb_t;
   typedef logic [WideDataWidth-1:0]     data_dma_t;
   typedef logic [WideDataWidth/8-1:0]   strb_dma_t;
+  typedef logic [ExtDataWidth-1:0]      data_ext_t;
+  typedef logic [ExtDataWidth/8-1:0]    strb_ext_t;
   typedef logic [NarrowIdWidthIn-1:0]   narrow_in_id_t;
   typedef logic [NarrowIdWidthOut-1:0]  narrow_out_id_t;
   typedef logic [WideIdWidthIn-1:0]     wide_in_id_t;
@@ -103,6 +106,7 @@ package ${cfg['cluster']['name']}_pkg;
   typedef logic [TcdmAddrWidth-1:0]     tcdm_addr_t;
 
   `TCDM_TYPEDEF_ALL(tcdm_dma, tcdm_addr_t, data_dma_t, strb_dma_t, logic)
+  `TCDM_TYPEDEF_ALL(tcdm_ext, tcdm_addr_t, data_ext_t, strb_ext_t, logic)
 
   function automatic snitch_pma_pkg::rule_t [snitch_pma_pkg::NrMaxRules-1:0] get_cached_regions();
     automatic snitch_pma_pkg::rule_t [snitch_pma_pkg::NrMaxRules-1:0] cached_regions;

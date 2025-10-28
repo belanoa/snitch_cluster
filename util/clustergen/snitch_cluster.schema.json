@@ -136,6 +136,11 @@
                     "description": "Data bus size of DMA. Usually this is larger than the integer core as the DMA is used to efficiently transfer bulk of data.",
                     "default": 512
                 },
+                "ext_data_width": {
+                    "type": "number",
+                    "description": "Data bus size of the external TCDM ports.",
+                    "default": 512
+                },
                 "narrow_trans": {
                     "type": "number",
                     "description": "Outstanding transactions on the narrow AXI network",
