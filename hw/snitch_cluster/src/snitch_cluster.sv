@@ -30,6 +30,8 @@ module snitch_cluster
   parameter int unsigned NarrowDataWidth    = 64,
   /// Width of wide AXI port.
   parameter int unsigned WideDataWidth      = 512,
+  /// Width of the external TCDM port(s)
+  parameter int unsigned ExtDataWidth       = 256,
   /// AXI: id width in.
   parameter int unsigned NarrowIdWidthIn    = 2,
   /// AXI: dma id width in.
@@ -203,6 +205,8 @@ module snitch_cluster
   // TCDM Ports
   parameter type         tcdm_dma_req_t    = logic,
   parameter type         tcdm_dma_rsp_t    = logic,
+  parameter type         tcdm_ext_req_t    = logic,
+  parameter type         tcdm_ext_rsp_t    = logic,
   // Memory configuration input types; these vary depending on implementation.
   parameter type         sram_cfg_t        = logic,
   parameter type         sram_cfgs_t       = logic,
@@ -303,8 +307,8 @@ module snitch_cluster
   output narrow_out_req_t                         narrow_ext_req_o,
   input  narrow_out_resp_t                        narrow_ext_resp_i,
   // External TCDM ports
-  input  tcdm_dma_req_t [NumExpWideTcdmPorts-1:0] tcdm_ext_req_i,
-  output tcdm_dma_rsp_t [NumExpWideTcdmPorts-1:0] tcdm_ext_resp_o
+  input  tcdm_ext_req_t [NumExpWideTcdmPorts-1:0] tcdm_ext_req_i,
+  output tcdm_ext_rsp_t [NumExpWideTcdmPorts-1:0] tcdm_ext_resp_o
 );
   // ---------
   // Constants
@@ -319,6 +323,8 @@ module snitch_cluster
   localparam int unsigned BanksPerSuperBank = WideDataWidth / NarrowDataWidth;
   localparam int unsigned NrSuperBanks = NrBanks / BanksPerSuperBank;
   localparam int unsigned SuperBankSize = TCDMSize / NrSuperBanks;
+  localparam int unsigned ExtReqsPerSuperBank = WideDataWidth / ExtDataWidth;
+  localparam int unsigned NrSbExtReqs = ExtReqsPerSuperBank * NrSuperBanks;
 
   function automatic int unsigned get_tcdm_ports(int unsigned core);
     return (NumSsrs[core] > 1 ? NumSsrs[core] : 1);
@@ -430,6 +436,8 @@ module snitch_cluster
   typedef logic [NarrowDataWidth/8-1:0] strb_t;
   typedef logic [WideDataWidth-1:0]     data_dma_t;
   typedef logic [WideDataWidth/8-1:0]   strb_dma_t;
+  typedef logic [ExtDataWidth-1:0]      data_ext_t;
+  typedef logic [ExtDataWidth/8-1:0]    strb_ext_t;
   typedef logic [NarrowIdWidthIn-1:0]   id_mst_t;
   typedef logic [NarrowIdWidthOut-1:0]  id_slv_t;
   typedef logic [WideIdWidthIn-1:0]     id_dma_mst_t;
@@ -463,6 +471,7 @@ module snitch_cluster
 
   `MEM_TYPEDEF_ALL(mem, tcdm_mem_addr_t, data_t, strb_t, tcdm_user_t)
   `MEM_TYPEDEF_ALL(mem_dma, tcdm_mem_addr_t, data_dma_t, strb_dma_t, logic)
+  `MEM_TYPEDEF_ALL(mem_ext, tcdm_mem_addr_t, data_ext_t, strb_ext_t, logic)
 
   `TCDM_TYPEDEF_ALL(tcdm, tcdm_addr_t, data_t, strb_t, tcdm_user_t)
 
@@ -606,8 +615,8 @@ module snitch_cluster
   mem_dma_req_t [NrSuperBanks-1:0] sb_dma_req;
   mem_dma_rsp_t [NrSuperBanks-1:0] sb_dma_rsp;
 
-  mem_dma_req_t [NrSuperBanks-1:0] sb_ext_req;
-  mem_dma_rsp_t [NrSuperBanks-1:0] sb_ext_rsp;
+  mem_ext_req_t [NrSuperBanks-1:0][ExtReqsPerSuperBank-1:0] sb_ext_req;
+  mem_ext_rsp_t [NrSuperBanks-1:0][ExtReqsPerSuperBank-1:0] sb_ext_rsp;
 
   // 3. Memory Subsystem (Interconnect)
   tcdm_dma_req_t ext_dma_req;
@@ -855,16 +864,16 @@ module snitch_cluster
 
   snitch_tcdm_interconnect #(
     .NumInp (NumExpWideTcdmPorts),
-    .NumOut (NrSuperBanks),
+    .NumOut (NrSbExtReqs),
     .NumHyperBanks (NrHyperBanks),
-    .tcdm_req_t (tcdm_dma_req_t),
-    .tcdm_rsp_t (tcdm_dma_rsp_t),
-    .mem_req_t (mem_dma_req_t),
-    .mem_rsp_t (mem_dma_rsp_t),
+    .tcdm_req_t (tcdm_ext_req_t),
+    .tcdm_rsp_t (tcdm_ext_rsp_t),
+    .mem_req_t (mem_ext_req_t),
+    .mem_rsp_t (mem_ext_rsp_t),
     .user_t (logic),
     .TcdmAddrWidth (TCDMAddrWidth),
     .MemAddrWidth (TCDMMemAddrWidth),
-    .DataWidth (WideDataWidth),
+    .DataWidth (ExtDataWidth),
     .SuperBankDataWidth (WideDataWidth),
     .MemoryResponseLatency (MemoryMacroLatency),
     .SuperBankSize (SuperBankSize)
@@ -888,10 +897,13 @@ module snitch_cluster
     mem_wide_narrow_mux #(
       .NarrowDataWidth (NarrowDataWidth),
       .WideDataWidth (WideDataWidth),
+      .ExtDataWidth (ExtDataWidth),
       .mem_narrow_req_t (mem_req_t),
       .mem_narrow_rsp_t (mem_rsp_t),
       .mem_wide_req_t (mem_dma_req_t),
-      .mem_wide_rsp_t (mem_dma_rsp_t)
+      .mem_wide_rsp_t (mem_dma_rsp_t),
+      .mem_ext_req_t (mem_ext_req_t),
+      .mem_ext_rsp_t (mem_ext_rsp_t)
     ) i_tcdm_mux (
       .clk_i,
       .rst_ni,
