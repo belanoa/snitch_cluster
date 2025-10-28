@@ -40,10 +40,14 @@ module snitch_tcdm_interconnect #(
   /// Data size of the interconnect. Only the data portion counts. The offsets
   /// into the address are derived from this.
   parameter int unsigned DataWidth             = 32,
+  /// Data size of a Superbank
+  parameter int unsigned SuperBankDataWidth    = DataWidth,
   /// Additional user payload to route.
   parameter type         user_t                = logic,
   /// Latency of memory response (in cycles)
   parameter int unsigned MemoryResponseLatency = 1,
+  /// The size of a superbank in bytes
+  parameter int unsigned SuperBankSize         = 0,
   parameter snitch_pkg::topo_e Topology        = snitch_pkg::LogarithmicInterconnect
 ) (
   /// Clock, positive edge triggered.
@@ -140,12 +144,14 @@ module snitch_tcdm_interconnect #(
     .TcdmAddrWidth (TcdmAddrWidth),
     .MemAddrWidth (VirtualMemAddrWidth),
     .DataWidth (DataWidth),
+    .SuperBankDataWidth (SuperBankDataWidth),
     .user_t (user_t),
     .MemoryResponseLatency (MemoryResponseLatency),
     .Radix (Radix),
     .Topology (Topology),
     .NumSwitchNets (NumSwitchNets),
-    .SwitchLfsrArbiter (SwitchLfsrArbiter)
+    .SwitchLfsrArbiter (SwitchLfsrArbiter),
+    .SuperBankSize (SuperBankSize)
   ) i_tcdm_internal_interconnect (
     .clk_i,
     .rst_ni,

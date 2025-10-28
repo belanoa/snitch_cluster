@@ -37,10 +37,15 @@ module snitch_tcdm_fc_interconnect #(
   /// Data size of the interconnect. Only the data portion counts. The offsets
   /// into the address are derived from this.
   parameter int unsigned DataWidth             = 32,
+  /// Data size of a Superbank
+  parameter int unsigned SuperBankDataWidth    = DataWidth,
   /// Additional user payload to route.
   parameter type         user_t                = logic,
   /// Latency of memory response (in cycles)
   parameter int unsigned MemoryResponseLatency = 1,
+  /// The size of a superbank in bytes
+  parameter int unsigned SuperBankSize         = 0,
+
   parameter snitch_pkg::topo_e Topology        = snitch_pkg::LogarithmicInterconnect
 ) (
   /// Clock, positive edge triggered.
@@ -58,6 +63,10 @@ module snitch_tcdm_fc_interconnect #(
   input  mem_rsp_t            [NumOut-1:0] mem_rsp_i
 );
 
+  localparam int unsigned BanksPerSuperBank = SuperBankDataWidth/DataWidth;
+  localparam int unsigned NumSuperBanksOut = NumOut/BanksPerSuperBank;
+  localparam int unsigned SuperBankOffset = $clog2(SuperBankSize);
+  localparam int unsigned BankOffset      = SuperBankOffset - $clog2(BanksPerSuperBank);
   localparam int unsigned ByteOffset = $clog2(DataWidth/8);
   localparam int unsigned StrbWidth = DataWidth/8;
   typedef logic [MemAddrWidth-1:0] addr_t;
@@ -87,7 +96,13 @@ module snitch_tcdm_fc_interconnect #(
   // This generates a bank interleaved addressing scheme, where consecutive
   // addresses are routed to individual banks.
   for (genvar i = 0; i < NumInp; i++) begin : gen_bank_select
-    assign bank_select[i] = req_i[i].q.addr[TcdmAddrWidth-1:ByteOffset] % NumOut;
+    if (SuperBankDataWidth == DataWidth) begin
+      assign bank_select[i] = req_i[i].q.addr[TcdmAddrWidth-1:SuperBankOffset] % NumSuperBanksOut;
+    end else begin
+      logic [$clog2(BanksPerSuperBank)-1:0] addr_low;
+      assign addr_low = req_i[i].q.addr[SuperBankOffset-1:ByteOffset] % BanksPerSuperBank;
+      assign bank_select[i] = {req_i[i].q.addr[TcdmAddrWidth-1:SuperBankOffset] % NumSuperBanksOut, addr_low}; // FIXME with non-power-of-2
+    end
   end
 
   mem_req_chan_t [NumInp-1:0] in_req;
@@ -101,7 +116,7 @@ module snitch_tcdm_fc_interconnect #(
     assign req_q_valid_flat[i] = req_i[i].q_valid;
     assign rsp_o[i].q_ready = rsp_q_ready_flat[i];
     assign in_req[i] = '{
-      addr: req_i[i].q.addr[TcdmAddrWidth-1:ByteOffset] / NumOut,
+      addr: req_i[i].q.addr[TcdmAddrWidth-1:ByteOffset] / BanksPerSuperBank,
       write: req_i[i].q.write,
       amo: req_i[i].q.amo,
       data: req_i[i].q.data,
