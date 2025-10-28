@@ -318,6 +318,7 @@ module snitch_cluster
   localparam int unsigned BanksPerHyperBank = NrBanks / NrHyperBanks;
   localparam int unsigned BanksPerSuperBank = WideDataWidth / NarrowDataWidth;
   localparam int unsigned NrSuperBanks = NrBanks / BanksPerSuperBank;
+  localparam int unsigned SuperBankSize = TCDMSize / NrSuperBanks;
 
   function automatic int unsigned get_tcdm_ports(int unsigned core);
     return (NumSsrs[core] > 1 ? NumSsrs[core] : 1);
@@ -840,7 +841,9 @@ module snitch_cluster
     .TcdmAddrWidth (TCDMAddrWidth),
     .MemAddrWidth (TCDMMemAddrWidth),
     .DataWidth (WideDataWidth),
-    .MemoryResponseLatency (MemoryMacroLatency)
+    .SuperBankDataWidth (WideDataWidth),
+    .MemoryResponseLatency (MemoryMacroLatency),
+    .SuperBankSize (SuperBankSize)
   ) i_dma_interconnect (
     .clk_i,
     .rst_ni,
@@ -862,7 +865,9 @@ module snitch_cluster
     .TcdmAddrWidth (TCDMAddrWidth),
     .MemAddrWidth (TCDMMemAddrWidth),
     .DataWidth (WideDataWidth),
-    .MemoryResponseLatency (MemoryMacroLatency)
+    .SuperBankDataWidth (WideDataWidth),
+    .MemoryResponseLatency (MemoryMacroLatency),
+    .SuperBankSize (SuperBankSize)
   ) i_ext_interconnect (
     .clk_i,
     .rst_ni,
@@ -978,12 +983,14 @@ module snitch_cluster
     .TcdmAddrWidth (TCDMAddrWidth),
     .MemAddrWidth (TCDMMemAddrWidth),
     .DataWidth (NarrowDataWidth),
+    .SuperBankDataWidth (WideDataWidth),
     .user_t (tcdm_user_t),
     .MemoryResponseLatency (1 + RegisterTCDMCuts),
     .Radix (Radix),
     .Topology (Topology),
     .NumSwitchNets (NumSwitchNets),
-    .SwitchLfsrArbiter (SwitchLfsrArbiter)
+    .SwitchLfsrArbiter (SwitchLfsrArbiter),
+    .SuperBankSize (SuperBankSize)
   ) i_tcdm_interconnect (
     .clk_i,
     .rst_ni,
