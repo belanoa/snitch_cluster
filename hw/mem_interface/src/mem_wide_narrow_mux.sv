@@ -25,6 +25,8 @@ module mem_wide_narrow_mux #(
   parameter int unsigned NarrowDataWidth = 0,
   /// Width of wide data.
   parameter int unsigned WideDataWidth   = 0,
+  /// Width of external data.
+  parameter int unsigned ExtDataWidth    = 0,
   /// Latency of upstream memory port.
   parameter int unsigned MemoryLatency   = 1,
   /// Request type of narrow inputs.
@@ -35,6 +37,10 @@ module mem_wide_narrow_mux #(
   parameter type mem_wide_req_t          = logic,
   /// Response type of wide inputs.
   parameter type mem_wide_rsp_t          = logic,
+  /// Request type of external inputs.
+  parameter type mem_ext_req_t           = logic,
+  /// Response type of external inputs.
+  parameter type mem_ext_rsp_t           = logic,
   /// Derived. *Do not override*
   /// Number of narrow inputs.
   parameter int unsigned NrPorts = WideDataWidth / NarrowDataWidth
@@ -49,14 +55,15 @@ module mem_wide_narrow_mux #(
   input  mem_wide_req_t                 in_wide_req_i,
   output mem_wide_rsp_t                 in_wide_rsp_o,
   /// External side.
-  input  mem_wide_req_t                 in_ext_req_i,
-  output mem_wide_rsp_t                 in_ext_rsp_o,
+  input  mem_ext_req_t                  in_ext_req_i,   // Use the last 2 addr bits to determine the strb
+  output mem_ext_rsp_t                  in_ext_rsp_o,
   // Multiplexed output.
   output mem_narrow_req_t [NrPorts-1:0] out_req_o,
   input  mem_narrow_rsp_t [NrPorts-1:0] out_rsp_i
 );
 
   localparam int unsigned NarrowStrbWidth = NarrowDataWidth/8;
+  localparam int unsigned ExtAddrSurplusBits = $clog2(WideDataWidth/ExtDataWidth);
 
   always_comb begin
     // ----------------
@@ -109,11 +116,11 @@ module mem_wide_narrow_mux #(
         // Block access from narrow ports.
         in_narrow_rsp_o[i].q_ready = 1'b0;
         out_req_o[i].q = '{
-          addr: in_ext_req_i.q.addr,
+          addr: in_ext_req_i.q.addr >> ExtAddrSurplusBits,
           write: in_ext_req_i.q.write,
           amo: reqrsp_pkg::AMONone,
           data: in_ext_req_i.q.data[i*NarrowDataWidth+:NarrowDataWidth],
-          strb: in_ext_req_i.q.strb[i*NarrowStrbWidth+:NarrowStrbWidth],
+          strb: in_ext_req_i.q.strb[i*NarrowStrbWidth+:NarrowStrbWidth] << (in_ext_req_i.q.addr[ExtAddrSurplusBits-1:0]*(ExtDataWidth/8)),
           user: in_ext_req_i.q.user
         };
 
