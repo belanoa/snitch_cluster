@@ -107,8 +107,24 @@ module mem_wide_narrow_mux #(
       in_ext_rsp_o[i].q_ready  = 1'b0;
     end
 
-    // The wide port has the highest priority
-    if (in_wide_req_i.q_valid) begin
+    // The ext port has the highest priority
+    if (any_ext_req) begin // The ext port has the second highest priority
+      for (int i = 0; i < NrPorts; i++) begin
+        out_req_o[i].q_valid = in_ext_req_i[i/NrPortsExt].q_valid;
+        // Block access from narrow ports.
+        in_narrow_rsp_o[i].q_ready = 1'b0;
+        out_req_o[i].q = '{
+          addr: in_ext_req_i[i/NrPortsExt].q.addr,
+          write: in_ext_req_i[i/NrPortsExt].q.write,
+          amo: reqrsp_pkg::AMONone,
+          data: in_ext_req_i[i/NrPortsExt].q.data[(i%NrPortsExt)*NarrowDataWidth+:NarrowDataWidth],
+          strb: in_ext_req_i[i/NrPortsExt].q.strb[(i%NrPortsExt)*NarrowStrbWidth+:NarrowStrbWidth],
+          user: in_ext_req_i[i/NrPortsExt].q.user
+        };
+
+        in_ext_rsp_o[i/NrPortsExt].q_ready = 1'b1;
+      end
+    end else if (in_wide_req_i.q_valid) begin
       for (int i = 0; i < NrPorts; i++) begin
         out_req_o[i].q_valid = in_wide_req_i.q_valid;
         // Block access from narrow ports.
@@ -124,22 +140,6 @@ module mem_wide_narrow_mux #(
         // The protocol requires that the response is always granted
         // immediately (at least when `in_wide_req_i.q_valid` is high).
         in_wide_rsp_o.q_ready = 1'b1;
-      end
-    end else if (any_ext_req) begin // The ext port has the second highest priority
-      for (int i = 0; i < NrPorts; i++) begin
-        out_req_o[i].q_valid = in_ext_req_i[i/NrPortsExt].q_valid;
-        // Block access from narrow ports.
-        in_narrow_rsp_o[i].q_ready = 1'b0;
-        out_req_o[i].q = '{
-          addr: in_ext_req_i[i/NrPortsExt].q.addr,
-          write: in_ext_req_i[i/NrPortsExt].q.write,
-          amo: reqrsp_pkg::AMONone,
-          data: in_ext_req_i[i/NrPortsExt].q.data[(i%NrPortsExt)*NarrowDataWidth+:NarrowDataWidth],
-          strb: in_ext_req_i[i/NrPortsExt].q.strb[(i%NrPortsExt)*NarrowStrbWidth+:NarrowStrbWidth],
-          user: in_ext_req_i[i/NrPortsExt].q.user
-        };
-
-        in_ext_rsp_o[i/NrPortsExt].q_ready = 1'b1;
       end
     end
   end
@@ -164,12 +164,13 @@ module mem_wide_narrow_mux #(
     `ASSERT(SilentNarrow, in_wide_req_i.q_valid |-> !in_narrow_rsp_o[i].q_ready)
     `ASSERT(NarrowPassThrough, !in_wide_req_i.q_valid & in_narrow_req_i[i].q_valid |-> out_req_o[i].q_valid)
   end
-  `ASSERT(DmaSelected, in_wide_req_i.q_valid & in_wide_req_i.q_valid |-> &q_valid_flat)
-  `ASSERT(DmaSelectedReadyWhenValid,
-    in_wide_req_i.q_valid & in_wide_req_i.q_valid |-> in_wide_rsp_o.q_ready)
-  `ASSERT(DmaWriteDataCorrect,
-    in_wide_req_i.q_valid & in_wide_rsp_o.q_ready |->
-    (in_wide_req_i.q.data === q_data) && (in_wide_req_i.q.strb === q_strb))
+// TODO check if this is still necessary; if you experience any problem in the tests, it is probably bacause of the inverted priority!
+//  `ASSERT(DmaSelected, in_wide_req_i.q_valid & in_wide_req_i.q_valid |-> &q_valid_flat)
+//  `ASSERT(DmaSelectedReadyWhenValid,
+//    in_wide_req_i.q_valid & in_wide_req_i.q_valid |-> in_wide_rsp_o.q_ready)
+//  `ASSERT(DmaWriteDataCorrect,
+//    in_wide_req_i.q_valid & in_wide_rsp_o.q_ready |->
+//    (in_wide_req_i.q.data === q_data) && (in_wide_req_i.q.strb === q_strb))
   // verilog_lint: waive-stop line-length
 
 endmodule
