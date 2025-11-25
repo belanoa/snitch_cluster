@@ -19,6 +19,8 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
   parameter int unsigned DataWidth = 64,
   /// Reduced-register extension.
   parameter bit          RVE       = 0,
+  /// Integer multiplication and division extension
+  parameter bit          RVM       = 1,
   /// Enable Snitch DMA as accelerator.
   parameter bit          Xdma      = 0,
   parameter bit          Xssr      = 0,
@@ -1073,13 +1075,17 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
       DIVUW,
       REMW,
       REMUW: begin
-        write_rd = 1'b0;
-        uses_rd = 1'b1;
-        acc_qvalid_o = valid_instr;
-        opa_select = Reg;
-        opb_select = Reg;
-        acc_register_rd = 1'b1;
-        acc_qreq_o.addr = SHARED_MULDIV;
+        if (RVM) begin
+          write_rd = 1'b0;
+          uses_rd = 1'b1;
+          acc_qvalid_o = valid_instr;
+          opa_select = Reg;
+          opb_select = Reg;
+          acc_register_rd = 1'b1;
+          acc_qreq_o.addr = SHARED_MULDIV;
+        end else begin
+          illegal_inst = 1'b1;
+        end
       end
       // Off-loaded to IPU
       ANDN, ORN, XNOR, SLO, SRO, ROL, ROR, SBCLR, SBSET, SBINV, SBEXT,

@@ -86,6 +86,8 @@ module snitch_cluster
   parameter bit          EnableDMAMulticast = 0,
   /// Per-core enabling of the standard `E` ISA reduced-register extension.
   parameter bit [NrCores-1:0] RVE           = '0,
+  /// Per-core enabling of the standard `M` ISA extension.
+  parameter bit [NrCores-1:0] RVM           = '0,
   /// Per-core enabling of the standard `F` ISA extensions.
   parameter bit [NrCores-1:0] RVF           = '0,
   /// Per-core enabling of the standard `D` ISA extensions.
@@ -1086,6 +1088,7 @@ module snitch_cluster
         .x_result_t (x_result_t),
         .BootAddr (BootAddrInternal),
         .RVE (RVE[i]),
+        .RVM (RVM[i]),
         .RVF (RVF[i]),
         .RVD (RVD[i]),
         .XDivSqrt (XDivSqrt[i]),
@@ -1203,6 +1206,7 @@ module snitch_cluster
         .NarrowDataWidth (NarrowDataWidth),
         .WideDataWidth (WideDataWidth),
         .VMSupport (VMSupport),
+        .SharedMuldiv (|RVM),
         .dreq_t (reqrsp_req_t),
         .drsp_t (reqrsp_rsp_t),
         .hive_req_t (hive_req_t),

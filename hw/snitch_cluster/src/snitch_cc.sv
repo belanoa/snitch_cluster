@@ -58,6 +58,8 @@ module snitch_cc #(
   parameter logic [31:0] BootAddr           = 32'h0000_1000,
   /// Reduced-register extension
   parameter bit          RVE                = 0,
+  /// Integer multiplication and division extension
+  parameter bit          RVM                = 1,
   /// Enable F and D Extension
   parameter bit          RVF                = 1,
   parameter bit          RVD                = 1,
@@ -257,6 +259,7 @@ module snitch_cc #(
     .NumDTLBEntries (NumDTLBEntries),
     .NumITLBEntries (NumITLBEntries),
     .RVE (RVE),
+    .RVM (RVM),
     .FP_EN (FPEn),
     .Xdma (Xdma),
     .Xssr (Xssr),

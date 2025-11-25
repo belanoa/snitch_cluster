@@ -133,6 +133,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .EnableDMAMulticast (${int(cfg['cluster']['enable_multicast'])}),
     .XifIdWidth (${cfg['cluster']['name']}_pkg::XifIdWidth),
     .RVE (${core_isa('e')}),
+    .RVM (${core_isa('m')}),
     .RVF (${core_isa('f')}),
     .RVD (${core_isa('d')}),
     .XDivSqrt (${core_cfg_flat('Xdiv_sqrt')}),
