@@ -125,6 +125,11 @@ module snitch_cc #(
   parameter logic [AddrWidth-1:0] TCDMAliasStart  = '0,
   /// Derived parameter *Do not override*
   parameter int unsigned TCDMPorts = (NumSsrs > 1 ? NumSsrs : 1),
+  parameter int unsigned PaceDegree     = 0,
+  parameter int unsigned PaceParts      = 0,
+  parameter int unsigned PaceDataWidth  = 0,
+  parameter int unsigned PaceParamWidth = 0,
+  parameter int unsigned PaceEps = 0,
   parameter type addr_t = logic [AddrWidth-1:0],
   parameter type data_t = logic [DataWidth-1:0]
 ) (
@@ -169,7 +174,9 @@ module snitch_cc #(
   output logic                              barrier_o,
   input  logic                              barrier_i,
   // Fence flag
-  output logic                              fence_o
+  output logic                              fence_o,
+  // PACE parameters
+  input  logic [PaceParamWidth-1:0]         pace_param_i
 );
 
   // FMA architecture is "merged" -> mulexp and macexp instructions are supported
@@ -218,6 +225,7 @@ module snitch_cc #(
   fpnew_pkg::roundmode_e fpu_rnd_mode;
   fpnew_pkg::fmt_mode_t  fpu_fmt_mode;
   fpnew_pkg::status_t    fpu_status;
+  fpnew_pkg::pace_mode_t fpu_pace_mode;
 
   snitch_pkg::core_events_t snitch_events;
   snitch_pkg::core_events_t fpu_events;
@@ -317,6 +325,7 @@ module snitch_cc #(
     .fpu_rnd_mode_o ( fpu_rnd_mode ),
     .fpu_fmt_mode_o ( fpu_fmt_mode ),
     .fpu_status_i ( fpu_status ),
+    .fpu_pace_mode_o( fpu_pace_mode ),
     .core_events_o ( snitch_events),
     .barrier_o ( barrier_o ),
     .barrier_i ( barrier_i ),
@@ -555,7 +564,12 @@ module snitch_cc #(
       .XF8 (XF8),
       .XF8ALT (XF8ALT),
       .XFVEC (XFVEC),
-      .FLEN (FLEN)
+      .FLEN (FLEN),
+      .PaceDataWidth(PaceDataWidth),
+      .PaceDegree(PaceDegree),
+      .PaceParts(PaceParts),
+      .PaceParamWidth(PaceParamWidth),
+      .PaceEps(PaceEps)
     ) i_snitch_fp_ss (
       .clk_i,
       .rst_i            ( ~rst_ni | (~rst_fp_ss_ni)   ),
@@ -589,7 +603,9 @@ module snitch_cc #(
       .streamctl_done_i   ( ssr_streamctl_done  ),
       .streamctl_valid_i  ( ssr_streamctl_valid ),
       .streamctl_ready_o  ( ssr_streamctl_ready ),
-      .core_events_o      ( fp_ss_core_events   )
+      .core_events_o      ( fp_ss_core_events   ),
+      .fpu_pace_param_i       ( pace_param_i ),
+      .fpu_pace_mode_i        ( fpu_pace_mode )
     );
 
     reqrsp_mux #(
