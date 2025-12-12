@@ -132,7 +132,7 @@ inline uint32_t __attribute__((const)) snrt_cluster_compute_core_num() {
  * @return True if the current core is a compute core, false otherwise.
  */
 inline int __attribute__((const)) snrt_is_compute_core() {
-    return snrt_cluster_core_idx() < snrt_cluster_compute_core_num();
+    return snrt_cluster_core_idx() != 0;//< snrt_cluster_compute_core_num();
 }
 
 /**

@@ -42,7 +42,7 @@ static inline void snrt_init_tls() {
         // Initialize all cores' .tbss sections
         tls_ptr += size;
         size = (size_t)(&__tbss_end) - (size_t)(&__tbss_start);
-        for (int i = 0; i < snrt_cluster_core_num(); i++) {
+        for (int i = 0; i < 1; i++) {
             snrt_dma_memset((void*)(tls_ptr + i * tls_offset), 0, size);
         }
         snrt_dma_wait_all();
@@ -87,7 +87,9 @@ static inline void snrt_wake_up() {
     snrt_cluster_hw_barrier();
 
     // Clear the reset flag
-    snrt_int_clr_mcip();
+    if (snrt_cluster_core_idx() == 0) {
+        snrt_int_clr_mcip();
+    }
 }
 #endif
 
@@ -136,7 +138,7 @@ extern void snrt_exit(int exit_code);
 // Referenced in an assembly file (start.S), must use C linkage
 EXTERN_C void snrt_main() {
     int exit_code = 0;
-    if (snrt_cluster_idx() == 0) {
+    if (snrt_cluster_core_idx() == 0) {
         snrt_int_clr_mcip();
     }
 
@@ -206,7 +208,11 @@ EXTERN_C void snrt_main() {
 #endif
 
 #ifdef SNRT_CRT0_EXIT
-    snrt_exit(exit_code);
+    snrt_global_barrier();
+
+    if (snrt_cluster_core_idx() == 0) {
+        *((uint32_t volatile *) snrt_exit_code_destination()) = (exit_code << 1) | 1;
+    }
 #endif
 
 #ifdef SNRT_CRT0_CALLBACK8

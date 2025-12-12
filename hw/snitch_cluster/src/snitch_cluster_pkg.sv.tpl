@@ -15,9 +15,12 @@ ${"{}'h{}".format(length or "", hex(x)[2:])}\
 </%def>
 
 <%def name="core_cfg(prop)">\
-  % for c in cfg['cluster']['cores']:
-${c[prop]}${', ' if not loop.last else ''}\
-  % endfor
+<%
+    external_cores = ['0'] * cfg['cluster']['nr_external_cores']
+    internal_cores = [str(c[prop]) for c in cfg['cluster']['cores']]
+    all_cores = external_cores + internal_cores
+%>
+${', '.join(all_cores)}
 </%def>\
 
 <%def name="ssr_cfg(core, ssr_fmt_str, none_str, inner_sep)">\
@@ -33,12 +36,14 @@ ${',' if not loop.last else ''}
 
 `include "axi/typedef.svh"
 `include "tcdm_interface/typedef.svh"
+`include "snitch_vm/typedef.svh"
 
 // verilog_lint: waive-start package-filename
 package ${cfg['cluster']['name']}_pkg;
 
-  localparam int unsigned NrCores = ${cfg['cluster']['nr_cores']};
-  localparam int unsigned NrHives = ${cfg['cluster']['nr_hives']};
+  localparam int unsigned NrCores    = ${cfg['cluster']['nr_cores']};
+  localparam int unsigned NrHives    = ${cfg['cluster']['nr_hives']};
+  localparam int unsigned NrExtCores = ${cfg['cluster']['nr_external_cores']};
 
   localparam int unsigned TcdmSize = ${cfg['cluster']['tcdm']['size']};
   localparam int unsigned TcdmSizeNapotRounded = 1 << $clog2(TcdmSize);
@@ -78,7 +83,7 @@ package ${cfg['cluster']['name']}_pkg;
   localparam int unsigned XifDualread = 0;
   localparam int unsigned XifIssueRegisterSplit = 0;
 
-  localparam int unsigned Hive [NrCores] = '{${core_cfg('hive')}};
+  localparam int unsigned Hive [NrCores+NrExtCores] = '{${core_cfg('hive')}};
 
   localparam int unsigned TcdmAddrWidth = $clog2(TcdmSize*1024);
 
@@ -107,6 +112,55 @@ package ${cfg['cluster']['name']}_pkg;
   typedef logic [WideIdWidthOut-1:0]    wide_out_id_t;
   typedef logic [NarrowUserWidth-1:0]   user_t;
   typedef logic [WideUserWidth-1:0]     user_dma_t;
+
+  `SNITCH_VM_TYPEDEF(AddrWidth)
+
+  typedef struct packed {
+    snitch_pkg::acc_addr_e   addr;
+    logic [4:0]  id;
+    logic [31:0] data_op;
+    data_t       data_arga;
+    data_t       data_argb;
+    addr_t       data_argc;
+  } acc_req_t;
+
+  typedef struct packed {
+    logic [4:0] id;
+    logic       error;
+    data_t      data;
+  } acc_resp_t;
+
+  typedef struct packed {
+    // Slow domain.
+    logic       flush_i_valid;
+    addr_t      inst_addr;
+    logic       inst_cacheable;
+    logic       inst_valid;
+    // Fast domain.
+    acc_req_t   acc_req;
+    logic       acc_qvalid;
+    logic       acc_pready;
+    // Slow domain.
+    logic [1:0] ptw_valid;
+    snitch_pkg::va_t [1:0]  ptw_va;
+    pa_t [1:0]  ptw_ppn;
+  } hive_req_t;
+
+  typedef struct packed {
+    // Slow domain.
+    logic          flush_i_ready;
+    logic [31:0]   inst_data;
+    logic          inst_ready;
+    logic          inst_error;
+    // Fast domain.
+    logic          acc_qready;
+    acc_resp_t     acc_resp;
+    logic          acc_pvalid;
+    // Slow domain.
+    logic [1:0]    ptw_ready;
+    l0_pte_t [1:0] ptw_pte;
+    logic [1:0]    ptw_is_4mega;
+  } hive_rsp_t;
 
   `AXI_TYPEDEF_ALL(narrow_in, addr_t, narrow_in_id_t, data_t, strb_t, user_t)
   `AXI_TYPEDEF_ALL(narrow_out, addr_t, narrow_out_id_t, data_t, strb_t, user_t)

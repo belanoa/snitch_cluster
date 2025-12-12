@@ -138,7 +138,9 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
   output snitch_pkg::core_events_t  core_events_o,
   // Cluster HW barrier
   output logic          barrier_o,
-  input  logic          barrier_i
+  input  logic          barrier_i,
+  // Fence flag
+  output logic          fence_o
 );
   // Debug module's base address
   localparam logic [31:0] DmBaseAddress = 0;
@@ -566,6 +568,8 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
     x_register_valid_o = 1'b0;
     x_commit_valid_o   = 1'b0;
 
+    fence_o = 1'b0;
+
     flush_i_valid_o = 1'b0;
     tlb_flush = 1'b0;
     next_pc = Consec;
@@ -926,6 +930,7 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
       FENCE: begin
         fence_stall = valid_instr && !(lsu_empty && caq_empty);
         write_rd = 1'b0;
+        fence_o = valid_instr;
       end
       FENCE_I: begin
         flush_i_valid_o = valid_instr;

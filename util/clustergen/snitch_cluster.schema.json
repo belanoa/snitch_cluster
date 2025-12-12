@@ -236,6 +236,11 @@
                     "description": "Whether to expose memory cut configuration inputs for implementation",
                     "default": false
                 },
+                "nr_external_cores": {
+                    "type": "number",
+                    "description": "Number of external cores that will access the hive, barrier, and peripherals",
+                    "default": 0
+                },
                 "num_exposed_wide_tcdm_ports": {
                     "type": "number",
                     "description": "Number of exposed wide ports into the TCDM at the cluster interface. Used to provide external masters, such as accelerators, with wide access to the TCDM.",

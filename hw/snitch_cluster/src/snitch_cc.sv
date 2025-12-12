@@ -167,7 +167,9 @@ module snitch_cc #(
   input  addr_t                             tcdm_addr_base_i,
   // Cluster HW barrier
   output logic                              barrier_o,
-  input  logic                              barrier_i
+  input  logic                              barrier_i,
+  // Fence flag
+  output logic                              fence_o
 );
 
   // FMA architecture is "merged" -> mulexp and macexp instructions are supported
@@ -322,7 +324,8 @@ module snitch_cc #(
     .fpu_status_i ( fpu_status ),
     .core_events_o ( snitch_events),
     .barrier_o ( barrier_o ),
-    .barrier_i ( barrier_i )
+    .barrier_i ( barrier_i ),
+    .fence_o ( fence_o )
   );
 
   reqrsp_iso #(

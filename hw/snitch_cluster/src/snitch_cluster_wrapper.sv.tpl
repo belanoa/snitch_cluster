@@ -34,6 +34,12 @@ ${int(getattr(c['isa_parsed'], isa))}\
     actual_num_exposed_wide_tcdm_ports += 1
 %>
 
+<%
+  actual_nr_external_cores = cfg['cluster']['nr_external_cores']
+  if actual_nr_external_cores == 0:
+    actual_nr_external_cores += 1
+%>
+
 module ${cfg['cluster']['name']}_wrapper (
   input  logic                                   clk_i,
   input  logic                                   rst_ni,
@@ -69,7 +75,16 @@ module ${cfg['cluster']['name']}_wrapper (
   output ${cfg['cluster']['name']}_pkg::narrow_out_req_t    narrow_ext_req_o,
   input  ${cfg['cluster']['name']}_pkg::narrow_out_resp_t   narrow_ext_resp_i,
   input  ${cfg['cluster']['name']}_pkg::tcdm_ext_req_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_req_i,
-  output ${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_resp_o
+  output ${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_resp_o,
+  input  logic [${actual_nr_external_cores}-1:0]                   barrier_i,
+  output logic                                    barrier_o,
+  // External hive reqs
+  input  ${cfg['cluster']['name']}_pkg::hive_req_t [${actual_nr_external_cores}-1:0]              hive_req_i,
+  output ${cfg['cluster']['name']}_pkg::hive_rsp_t [${actual_nr_external_cores}-1:0]              hive_rsp_o,
+  // External core events
+  input snitch_pkg::core_events_t [${actual_nr_external_cores}-1:0]            core_events_i,
+  // External cluster interrrupts
+  output logic [${actual_nr_external_cores}-1:0]                   cl_interrupt_o
 );
 
   localparam int unsigned NumIntOutstandingLoads [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_loads')}};
@@ -113,8 +128,13 @@ module ${cfg['cluster']['name']}_wrapper (
     .x_result_t (${cfg['cluster']['name']}_pkg::x_result_t),
     .tcdm_ext_req_t (${cfg['cluster']['name']}_pkg::tcdm_ext_req_t),
     .tcdm_ext_rsp_t (${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t),
+    .hive_req_t (${cfg['cluster']['name']}_pkg::hive_req_t),
+    .hive_rsp_t (${cfg['cluster']['name']}_pkg::hive_rsp_t),
+    .acc_req_t (${cfg['cluster']['name']}_pkg::acc_req_t),
+    .acc_resp_t (${cfg['cluster']['name']}_pkg::acc_resp_t),
     .NrHives (${cfg['cluster']['nr_hives']}),
     .NrCores (${cfg['cluster']['nr_cores']}),
+    .NrExtCores (${cfg['cluster']['nr_external_cores']}),
     .TCDMDepth (${cfg['cluster']['tcdm']['depth']}),
     .ZeroMemorySize (snitch_cluster_pkg::ZeroMemorySize),
     .ExtMemorySize (snitch_cluster_pkg::ExtMemorySize),
@@ -266,6 +286,18 @@ module ${cfg['cluster']['name']}_wrapper (
     .wide_out_req_o,
     .wide_out_resp_i,
     .wide_in_req_i,
-    .wide_in_resp_o
+    .wide_in_resp_o,
+% if cfg['cluster']['nr_external_cores']==0:
+    .barrier_i ('0),
+    .hive_req_i (${cfg['cluster']['name']}_pkg::hive_req_t('0)),
+    .core_events_i (${cfg['cluster']['name']}_pkg::core_events_t('0)),
+% else:
+    .barrier_i,
+    .hive_req_i,
+    .core_events_i,
+% endif
+    .barrier_o,
+    .hive_rsp_o,
+    .cl_interrupt_o
   );
 endmodule

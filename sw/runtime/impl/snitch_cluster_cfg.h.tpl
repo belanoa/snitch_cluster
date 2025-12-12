@@ -10,7 +10,8 @@
 
 #include "snitch_cluster_raw_addrmap.h"
 
-#define CFG_CLUSTER_NR_CORES ${cfg['cluster']['nr_cores']}
+#define CFG_CLUSTER_NR_CORES (${cfg['cluster']['nr_cores']} + ${cfg['cluster']['nr_external_cores']})
+#define CFG_CLUSTER_NR_CTRL_CORES (${cfg['cluster']['nr_cores']})
 #define CFG_CLUSTER_BASE_HARTID ${cfg['cluster']['cluster_base_hartid']}
 #define SNRT_BASE_HARTID CFG_CLUSTER_BASE_HARTID
 #define SNRT_CLUSTER_CORE_NUM CFG_CLUSTER_NR_CORES

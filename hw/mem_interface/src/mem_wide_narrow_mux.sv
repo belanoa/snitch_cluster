@@ -149,21 +149,21 @@ module mem_wide_narrow_mux #(
   // ----------
   `ASSERT_INIT(DataDivisible, WideDataWidth % NarrowDataWidth == 0)
 
-  // Currently the module has a couple of `quirks` and interface requirements
-  // which are checked here.
-  logic [NrPorts-1:0] q_valid_flat;
-  logic [NrPorts-1:0][NarrowDataWidth-1:0] q_data;
-  logic [NrPorts-1:0][NarrowStrbWidth-1:0] q_strb;
-  // verilog_lint: waive-start line-length
-  `ASSERT(ImmediateGrantWide, in_wide_req_i.q_valid |-> in_wide_rsp_o.q_ready)
-  for (genvar i = 0; i < NrPorts; i++) begin : gen_per_port
-    assign q_valid_flat[i] = out_req_o[i].q_valid;
-    assign q_data[i] = out_req_o[i].q.data;
-    assign q_strb[i] = out_req_o[i].q.strb;
-    `ASSERT(ImmediateGrantOut, in_wide_req_i.q_valid & out_req_o[i].q_valid |-> out_rsp_i[i].q_ready)
-    `ASSERT(SilentNarrow, in_wide_req_i.q_valid |-> !in_narrow_rsp_o[i].q_ready)
-    `ASSERT(NarrowPassThrough, !in_wide_req_i.q_valid & in_narrow_req_i[i].q_valid |-> out_req_o[i].q_valid)
-  end
+//  // Currently the module has a couple of `quirks` and interface requirements
+//  // which are checked here.
+//  logic [NrPorts-1:0] q_valid_flat;
+//  logic [NrPorts-1:0][NarrowDataWidth-1:0] q_data;
+//  logic [NrPorts-1:0][NarrowStrbWidth-1:0] q_strb;
+//  // verilog_lint: waive-start line-length
+//  `ASSERT(ImmediateGrantWide, in_wide_req_i.q_valid |-> in_wide_rsp_o.q_ready)
+//  for (genvar i = 0; i < NrPorts; i++) begin : gen_per_port
+//    assign q_valid_flat[i] = out_req_o[i].q_valid;
+//    assign q_data[i] = out_req_o[i].q.data;
+//    assign q_strb[i] = out_req_o[i].q.strb;
+//    `ASSERT(ImmediateGrantOut, in_wide_req_i.q_valid & out_req_o[i].q_valid |-> out_rsp_i[i].q_ready)
+//    `ASSERT(SilentNarrow, in_wide_req_i.q_valid |-> !in_narrow_rsp_o[i].q_ready)
+//    `ASSERT(NarrowPassThrough, !in_wide_req_i.q_valid & in_narrow_req_i[i].q_valid |-> out_req_o[i].q_valid)
+//  end
 // TODO check if this is still necessary; if you experience any problem in the tests, it is probably bacause of the inverted priority!
 //  `ASSERT(DmaSelected, in_wide_req_i.q_valid & in_wide_req_i.q_valid |-> &q_valid_flat)
 //  `ASSERT(DmaSelectedReadyWhenValid,

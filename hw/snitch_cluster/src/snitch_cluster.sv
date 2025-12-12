@@ -49,6 +49,8 @@ module snitch_cluster
   parameter int unsigned NrHives            = 1,
   /// The total (not per Hive) amount of cores.
   parameter int unsigned NrCores            = 8,
+  /// Number of extra cores outside the cluster
+  parameter int unsigned NrExtCores         = 0,
   /// Data/TCDM memory depth per cut (in words).
   parameter int unsigned TCDMDepth          = 1024,
   /// Zero memory address region size (in kB).
@@ -149,7 +151,7 @@ module snitch_cluster
   /// Per-core amount of sequencer loops for FPU if enabled.
   parameter int unsigned NumSequencerLoops [NrCores] = '{default: 0},
   /// Parent Hive id, a.k.a a mapping which core is assigned to which Hive.
-  parameter int unsigned Hive [NrCores] = '{default: 0},
+  parameter int unsigned Hive [NrCores+NrExtCores] = '{default: 0},
   /// TCDM Configuration.
   parameter topo_e       Topology           = LogarithmicInterconnect,
   /// Radix of the individual switch points of the network.
@@ -209,6 +211,11 @@ module snitch_cluster
   parameter type         tcdm_dma_rsp_t    = logic,
   parameter type         tcdm_ext_req_t    = logic,
   parameter type         tcdm_ext_rsp_t    = logic,
+  // Hive Ports
+  parameter type         hive_req_t        = logic,
+  parameter type         hive_rsp_t        = logic,
+  parameter type         acc_req_t         = logic,
+  parameter type         acc_resp_t        = logic,
   // Memory configuration input types; these vary depending on implementation.
   parameter type         sram_cfg_t        = logic,
   parameter type         sram_cfgs_t       = logic,
@@ -310,7 +317,17 @@ module snitch_cluster
   input  narrow_out_resp_t                        narrow_ext_resp_i,
   // External TCDM ports
   input  tcdm_ext_req_t [NumExpWideTcdmPorts-1:0] tcdm_ext_req_i,
-  output tcdm_ext_rsp_t [NumExpWideTcdmPorts-1:0] tcdm_ext_resp_o
+  output tcdm_ext_rsp_t [NumExpWideTcdmPorts-1:0] tcdm_ext_resp_o,
+  // External barrier requests
+  input  logic [NrExtCores-1:0]                   barrier_i,
+  output logic                                    barrier_o,
+  // External hive reqs
+  input  hive_req_t [NrExtCores-1:0]              hive_req_i,
+  output hive_rsp_t [NrExtCores-1:0]              hive_rsp_o,
+  // External core events
+  input core_events_t [NrExtCores-1:0]            core_events_i,
+  // External cluster interrrupts
+  output logic [NrExtCores-1:0]                   cl_interrupt_o
 );
   // ---------
   // Constants
@@ -417,13 +434,13 @@ module snitch_cluster
 
   function automatic int unsigned get_hive_size(int unsigned current_hive);
     automatic int n = 0;
-    for (int i = 0; i < NrCores; i++) if (Hive[i] == current_hive) n++;
+    for (int i = 0; i < NrCores + NrExtCores; i++) if (Hive[i] == current_hive) n++;
     return n;
   endfunction
 
   function automatic int unsigned get_core_position(int unsigned hive_id, int unsigned core_id);
     automatic int n = 0;
-    for (int i = 0; i < NrCores; i++) begin
+    for (int i = 0; i < NrCores + NrExtCores; i++) begin
       if (core_id == i) break;
       if (Hive[i] == hive_id) n++;
     end
@@ -506,55 +523,6 @@ module snitch_cluster
     addr_t end_addr;
   } xbar_rule_t;
 
-  typedef struct packed {
-    acc_addr_e   addr;
-    logic [4:0]  id;
-    logic [31:0] data_op;
-    data_t       data_arga;
-    data_t       data_argb;
-    addr_t       data_argc;
-  } acc_req_t;
-
-    typedef struct packed {
-    logic [4:0] id;
-    logic       error;
-    data_t      data;
-  } acc_resp_t;
-
-  `SNITCH_VM_TYPEDEF(PhysicalAddrWidth)
-
-  typedef struct packed {
-    // Slow domain.
-    logic       flush_i_valid;
-    addr_t      inst_addr;
-    logic       inst_cacheable;
-    logic       inst_valid;
-    // Fast domain.
-    acc_req_t   acc_req;
-    logic       acc_qvalid;
-    logic       acc_pready;
-    // Slow domain.
-    logic [1:0] ptw_valid;
-    va_t [1:0]  ptw_va;
-    pa_t [1:0]  ptw_ppn;
-  } hive_req_t;
-
-  typedef struct packed {
-    // Slow domain.
-    logic          flush_i_ready;
-    logic [31:0]   inst_data;
-    logic          inst_ready;
-    logic          inst_error;
-    // Fast domain.
-    logic          acc_qready;
-    acc_resp_t     acc_resp;
-    logic          acc_pvalid;
-    // Slow domain.
-    logic [1:0]    ptw_ready;
-    l0_pte_t [1:0] ptw_pte;
-    logic [1:0]    ptw_is_4mega;
-  } hive_rsp_t;
-
   // ---------------------------
   // Cluster-internal Addressing
   // ---------------------------
@@ -634,7 +602,7 @@ module snitch_cluster
   core_events_t      [NrCores-1:0]        core_events;
   tcdm_events_t                           tcdm_events;
   dma_events_t       [DMANumChannels-1:0] dma_events;
-  icache_l0_events_t [NrCores-1:0]        icache_events;
+  icache_l0_events_t [NrCores+NrExtCores-1:0]        icache_events;
 
   // 4. Memory Subsystem (Core side).
   reqrsp_req_t [NrCores-1:0] core_req;
@@ -653,6 +621,8 @@ module snitch_cluster
   logic [NrCores-1:0] cl_interrupt;
   logic [NrCores-1:0] barrier_in;
   logic barrier_out;
+
+  assign barrier_o = barrier_out;
 
   // -------------
   // DMA Subsystem
@@ -1191,13 +1161,20 @@ module snitch_cluster
 
       icache_l0_events_t [HiveSize-1:0] icache_events_reshape;
 
-      for (genvar j = 0; j < NrCores; j++) begin : gen_hive_matrix
+      for (genvar j = 0; j < NrCores + NrExtCores; j++) begin : gen_hive_matrix
         // Check whether the core actually belongs to the current hive.
         if (Hive[j] == i) begin : gen_hive_connection
           localparam int unsigned HivePosition = get_core_position(i, j);
-          assign hive_req_reshape[HivePosition] = hive_req[j];
-          assign hive_rsp[j] = hive_rsp_reshape[HivePosition];
-          assign icache_events[j] = icache_events_reshape[HivePosition];
+
+          if (j < NrCores) begin
+            assign hive_req_reshape[HivePosition] = hive_req[j];
+            assign hive_rsp[j] = hive_rsp_reshape[HivePosition];
+            assign icache_events[j] = icache_events_reshape[HivePosition];
+          end else begin
+            assign hive_req_reshape[HivePosition] = hive_req_i[j-NrCores];
+            assign hive_rsp_o[j-NrCores] = hive_rsp_reshape[HivePosition];
+            assign icache_events[j] = icache_events_reshape[HivePosition];
+          end
         end
       end
 
@@ -1281,11 +1258,11 @@ module snitch_cluster
   // --------
 
   snitch_barrier #(
-    .NrCores(NrCores)
+    .NrCores(NrCores+NrExtCores)
   ) i_snitch_barrier (
     .clk_i,
     .rst_ni,
-    .barrier_i(barrier_in),
+    .barrier_i({barrier_i,barrier_in}),
     .barrier_o(barrier_out)
   );
 
@@ -1554,7 +1531,7 @@ module snitch_cluster
     .apb_resp_t (apb_resp_t),
     .tcdm_events_t (tcdm_events_t),
     .dma_events_t (dma_events_t),
-    .NrCores (NrCores),
+    .NrCores (NrCores+NrExtCores),
     .DMANumChannels (DMANumChannels)
   ) i_snitch_cluster_peripheral (
     .clk_i,
@@ -1562,8 +1539,8 @@ module snitch_cluster
     .apb_req_i (apb_req),
     .apb_resp_o (apb_resp),
     .icache_prefetch_enable_o (icache_prefetch_enable),
-    .cl_clint_o (cl_interrupt),
-    .core_events_i (core_events),
+    .cl_clint_o ({cl_interrupt_o,cl_interrupt}),
+    .core_events_i ({core_events_i,core_events}),
     .tcdm_events_i (tcdm_events),
     .dma_events_i (dma_events),
     .icache_events_i (icache_events)

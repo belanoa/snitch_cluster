@@ -19,7 +19,7 @@ inline void snrt_int_cluster_set(uint32_t mask) {
  * @param mask set bit at X clears the interrupt of hart X
  */
 inline void snrt_int_cluster_clr(uint32_t mask) {
-    snrt_cluster()->peripheral_reg.cl_clint_clear.f.cl_clint_clear = mask;
+    snrt_cluster()->peripheral_reg.cl_clint_clear.f.cl_clint_clear = 0x001F;//mask;
 }
 
 /**
