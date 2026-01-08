@@ -29,7 +29,7 @@ SN_RISCV_CFLAGS += -fno-builtin-sqrtf
 SN_RISCV_CFLAGS += -fno-common
 SN_RISCV_CFLAGS += -fopenmp
 SN_RISCV_CFLAGS += -ftls-model=local-exec
-SN_RISCV_CFLAGS += -O1
+SN_RISCV_CFLAGS += -O3
 SN_RISCV_CFLAGS += -Werror
 ifeq ($(DEBUG), ON)
 SN_RISCV_CFLAGS += -g
