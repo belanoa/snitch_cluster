@@ -87,6 +87,8 @@ package ${cfg['cluster']['name']}_pkg;
 
   localparam int unsigned TcdmAddrWidth = $clog2(TcdmSize*1024);
 
+  localparam int unsigned CoreIDWidth = cf_math_pkg::idx_width(NrCores);
+
   typedef struct packed {
 % for field, width in cfg['cluster']['sram_cfg_fields'].items():
     logic [${width-1}:0] ${field};
@@ -167,8 +169,10 @@ package ${cfg['cluster']['name']}_pkg;
   `AXI_TYPEDEF_ALL(wide_in, addr_t, wide_in_id_t, data_dma_t, strb_dma_t, user_dma_t)
   `AXI_TYPEDEF_ALL(wide_out, addr_t, wide_out_id_t, data_dma_t, strb_dma_t, user_dma_t)
 
-  typedef logic [TcdmAddrWidth-1:0]     tcdm_addr_t;
+  typedef logic [TcdmAddrWidth-1:0] tcdm_addr_t;
+  typedef logic [CoreIDWidth:0]     tcdm_user_t;
 
+  `TCDM_TYPEDEF_ALL(tcdm, tcdm_addr_t, data_t, strb_t, tcdm_user_t)
   `TCDM_TYPEDEF_ALL(tcdm_dma, tcdm_addr_t, data_dma_t, strb_dma_t, logic)
   `TCDM_TYPEDEF_ALL(tcdm_ext, tcdm_addr_t, data_ext_t, strb_ext_t, logic)
 

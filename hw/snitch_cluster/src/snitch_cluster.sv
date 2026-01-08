@@ -76,6 +76,8 @@ module snitch_cluster
   parameter int unsigned DMANumChannels     = 1,
   /// Number of exposed TCDM wide ports
   parameter int unsigned NumExpWideTcdmPorts = 1,
+  /// Number of exposed TCDM narrow ports
+  parameter int unsigned NumExpNarrowTcdmPorts = 1,
   /// Width of a single icache line.
   parameter int unsigned ICacheLineWidth [NrHives] = '{default: 0},
   /// Number of icache lines per set.
@@ -207,6 +209,8 @@ module snitch_cluster
   parameter type         wide_in_req_t     = logic,
   parameter type         wide_in_resp_t    = logic,
   // TCDM Ports
+  parameter type         tcdm_req_t        = logic,
+  parameter type         tcdm_rsp_t        = logic,
   parameter type         tcdm_dma_req_t    = logic,
   parameter type         tcdm_dma_rsp_t    = logic,
   parameter type         tcdm_ext_req_t    = logic,
@@ -313,21 +317,23 @@ module snitch_cluster
   // this port extends the cluster address space. We refer to the prior
   // as an external AXI plug, and to this as an externally-exposed
   // internal AXI plug.
-  output narrow_out_req_t                         narrow_ext_req_o,
-  input  narrow_out_resp_t                        narrow_ext_resp_i,
+  output narrow_out_req_t                           narrow_ext_req_o,
+  input  narrow_out_resp_t                          narrow_ext_resp_i,
   // External TCDM ports
-  input  tcdm_ext_req_t [NumExpWideTcdmPorts-1:0] tcdm_ext_req_i,
-  output tcdm_ext_rsp_t [NumExpWideTcdmPorts-1:0] tcdm_ext_resp_o,
+  input  tcdm_ext_req_t [NumExpWideTcdmPorts-1:0]   tcdm_wide_ext_req_i,
+  output tcdm_ext_rsp_t [NumExpWideTcdmPorts-1:0]   tcdm_wide_ext_resp_o,
+  input  tcdm_req_t     [NumExpNarrowTcdmPorts-1:0] tcdm_narrow_ext_req_i,
+  output tcdm_rsp_t     [NumExpNarrowTcdmPorts-1:0] tcdm_narrow_ext_resp_o,
   // External barrier requests
-  input  logic [NrExtCores-1:0]                   barrier_i,
-  output logic                                    barrier_o,
+  input  logic [NrExtCores-1:0]                     barrier_i,
+  output logic                                      barrier_o,
   // External hive reqs
-  input  hive_req_t [NrExtCores-1:0]              hive_req_i,
-  output hive_rsp_t [NrExtCores-1:0]              hive_rsp_o,
+  input  hive_req_t [NrExtCores-1:0]                hive_req_i,
+  output hive_rsp_t [NrExtCores-1:0]                hive_rsp_o,
   // External core events
-  input core_events_t [NrExtCores-1:0]            core_events_i,
+  input core_events_t [NrExtCores-1:0]              core_events_i,
   // External cluster interrrupts
-  output logic [NrExtCores-1:0]                   cl_interrupt_o
+  output logic [NrExtCores-1:0]                     cl_interrupt_o
 );
   // ---------
   // Constants
@@ -356,7 +362,7 @@ module snitch_cluster
   endfunction
 
   localparam int unsigned NrTCDMPortsCores = get_tcdm_port_offs(NrCores);
-  localparam int unsigned NumTCDMIn = NrTCDMPortsCores + 1;
+  localparam int unsigned NumTCDMIn = NrTCDMPortsCores + 1 + NumExpNarrowTcdmPorts;
   localparam logic [PhysicalAddrWidth-1:0] TCDMMask = ~(TCDMSizeNapotRounded - 1);
 
   // Core Requests, SoC Request, PTW.
@@ -491,8 +497,6 @@ module snitch_cluster
   `MEM_TYPEDEF_ALL(mem, tcdm_mem_addr_t, data_t, strb_t, tcdm_user_t)
   `MEM_TYPEDEF_ALL(mem_dma, tcdm_mem_addr_t, data_dma_t, strb_dma_t, logic)
   `MEM_TYPEDEF_ALL(mem_ext, tcdm_mem_addr_t, data_ext_t, strb_ext_t, logic)
-
-  `TCDM_TYPEDEF_ALL(tcdm, tcdm_addr_t, data_t, strb_t, tcdm_user_t)
 
   // Event counter increments for the TCDM.
   typedef struct packed {
@@ -852,8 +856,8 @@ module snitch_cluster
   ) i_ext_interconnect (
     .clk_i,
     .rst_ni,
-    .req_i (tcdm_ext_req_i),
-    .rsp_o (tcdm_ext_resp_o),
+    .req_i (tcdm_wide_ext_req_i),
+    .rsp_o (tcdm_wide_ext_resp_o),
     .mem_req_o (sb_ext_req),
     .mem_rsp_i (sb_ext_rsp)
   );
@@ -978,8 +982,8 @@ module snitch_cluster
   ) i_tcdm_interconnect (
     .clk_i,
     .rst_ni,
-    .req_i ({axi_soc_req, tcdm_req}),
-    .rsp_o ({axi_soc_rsp, tcdm_rsp}),
+    .req_i ({tcdm_narrow_ext_req_i, axi_soc_req, tcdm_req}),
+    .rsp_o ({tcdm_narrow_ext_resp_o, axi_soc_rsp, tcdm_rsp}),
     .mem_req_o (ic_req),
     .mem_rsp_i (ic_rsp)
   );

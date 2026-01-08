@@ -35,6 +35,12 @@ ${int(getattr(c['isa_parsed'], isa))}\
 %>
 
 <%
+  actual_num_exposed_narrow_tcdm_ports = cfg['cluster']['num_exposed_narrow_tcdm_ports']
+  if actual_num_exposed_narrow_tcdm_ports == 0:
+    actual_num_exposed_narrow_tcdm_ports += 1
+%>
+
+<%
   actual_nr_external_cores = cfg['cluster']['nr_external_cores']
   if actual_nr_external_cores == 0:
     actual_nr_external_cores += 1
@@ -74,8 +80,10 @@ module ${cfg['cluster']['name']}_wrapper (
   output logic [${cfg['cluster']['name']}_pkg::NrCores-1:0]                              x_result_ready_o,
   output ${cfg['cluster']['name']}_pkg::narrow_out_req_t    narrow_ext_req_o,
   input  ${cfg['cluster']['name']}_pkg::narrow_out_resp_t   narrow_ext_resp_i,
-  input  ${cfg['cluster']['name']}_pkg::tcdm_ext_req_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_req_i,
-  output ${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_ext_resp_o,
+  input  ${cfg['cluster']['name']}_pkg::tcdm_ext_req_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_wide_ext_req_i,
+  output ${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t [${actual_num_exposed_wide_tcdm_ports}-1:0] tcdm_wide_ext_resp_o,
+  input  ${cfg['cluster']['name']}_pkg::tcdm_req_t [${actual_num_exposed_narrow_tcdm_ports}-1:0] tcdm_narrow_ext_req_i,
+  output ${cfg['cluster']['name']}_pkg::tcdm_rsp_t [${actual_num_exposed_narrow_tcdm_ports}-1:0] tcdm_narrow_ext_resp_o,
   input  logic [${actual_nr_external_cores}-1:0]                   barrier_i,
   output logic                                    barrier_o,
   // External hive reqs
@@ -128,6 +136,8 @@ module ${cfg['cluster']['name']}_wrapper (
     .x_result_t (${cfg['cluster']['name']}_pkg::x_result_t),
     .tcdm_ext_req_t (${cfg['cluster']['name']}_pkg::tcdm_ext_req_t),
     .tcdm_ext_rsp_t (${cfg['cluster']['name']}_pkg::tcdm_ext_rsp_t),
+    .tcdm_req_t (${cfg['cluster']['name']}_pkg::tcdm_req_t),
+    .tcdm_rsp_t (${cfg['cluster']['name']}_pkg::tcdm_rsp_t),
     .hive_req_t (${cfg['cluster']['name']}_pkg::hive_req_t),
     .hive_rsp_t (${cfg['cluster']['name']}_pkg::hive_rsp_t),
     .acc_req_t (${cfg['cluster']['name']}_pkg::acc_req_t),
@@ -146,6 +156,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .DMAReqFifoDepth (${cfg['cluster']['dma_req_fifo_depth']}),
     .DMANumChannels (${cfg['cluster']['dma_nr_channels']}),
     .NumExpWideTcdmPorts (${actual_num_exposed_wide_tcdm_ports}),
+    .NumExpNarrowTcdmPorts (${actual_num_exposed_narrow_tcdm_ports}),
     .ICacheLineWidth (${cfg['cluster']['name']}_pkg::ICacheLineWidth),
     .ICacheLineCount (${cfg['cluster']['name']}_pkg::ICacheLineCount),
     .ICacheWays (${cfg['cluster']['name']}_pkg::ICacheWays),
@@ -274,11 +285,17 @@ module ${cfg['cluster']['name']}_wrapper (
     .narrow_ext_resp_i (${cfg['cluster']['name']}_pkg::narrow_out_resp_t'('0)),
 % endif
 % if cfg['cluster']['num_exposed_wide_tcdm_ports']==0:
-    .tcdm_ext_req_i (${cfg['cluster']['name']}_pkg::tcdm_dma_req_t'('0)),
+    .tcdm_wide_ext_req_i (${cfg['cluster']['name']}_pkg::tcdm_ext_req_t'('0)),
 % else:
-    .tcdm_ext_req_i (tcdm_ext_req_i),
+    .tcdm_wide_ext_req_i (tcdm_wide_ext_req_i),
 % endif
-    .tcdm_ext_resp_o (tcdm_ext_resp_o),
+% if cfg['cluster']['num_exposed_narrow_tcdm_ports']==0:
+    .tcdm_narrow_ext_req_i (${cfg['cluster']['name']}_pkg::tcdm_req_t'('0)),
+% else:
+    .tcdm_narrow_ext_req_i (tcdm_narrow_ext_req_i),
+% endif
+    .tcdm_wide_ext_resp_o (tcdm_wide_ext_resp_o),
+    .tcdm_narrow_ext_resp_o (tcdm_narrow_ext_resp_o),
     .narrow_in_req_i,
     .narrow_in_resp_o,
     .narrow_out_req_o,
