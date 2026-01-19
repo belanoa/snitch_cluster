@@ -2324,43 +2324,48 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
         end else illegal_inst = 1'b1;
       end
 
-      default: begin // Offload the instruction to the coprocessor
-        write_rd = x_issue_ready_i & x_issue_valid_o & x_issue_resp_i.writeback;
-
-        opa_select = Reg;
-        opb_select = Reg;
-        opc_select = Reg;
-
-        x_issue_req_o.instr    = inst_data_i;
-        x_issue_req_o.id       = xif_offload_counter_q;
-        x_issue_req_o.hartid   = hart_id_i;
-
-        x_register_o.hartid    = hart_id_i;
-        x_register_o.id        = xif_offload_counter_q;
-        x_register_o.rs        = {opc, opb, opa};
-        x_register_o.rs_valid  = {~sb_q[rs3], ~sb_q[rs2], ~sb_q[rs1]};
-
-        x_commit_o.hartid      = hart_id_i;
-        x_commit_o.id          = xif_offload_counter_q;
-        // We do not speculate so the commit_kill signal can be set statically to zero
-        x_commit_o.commit_kill = 1'b0;
-
-        // Since we cannot know whether a source register will be used or not by the processor,
-        // here we do not use valid_instr as in the other instructions
-        x_issue_valid_o         = inst_ready_i
-                                & inst_valid_o
-                                & ((itlb_valid & itlb_ready) | ~trans_active);
-
-        // Same as x_issue_valid since reigsters are provided instantly
-        x_register_valid_o      = x_issue_valid_o;
-
-        // Assert x_commit_valid as soon as there's a valid issue handshake
-        x_commit_valid_o        = x_issue_valid_o & x_issue_ready_i;
-
-        // Flag the instruction as illegal if not accepted by the coprocessor
-        illegal_inst = x_issue_ready_i & x_issue_valid_o & ~x_issue_resp_i.accept;
+      default: begin
+        illegal_inst = 1'b1;
       end
     endcase
+
+    // If an instruction has not been recognized, try to offload it before raising an exception
+    if (illegal_inst) begin
+      write_rd = x_issue_ready_i & x_issue_valid_o & x_issue_resp_i.writeback;
+
+      opa_select = Reg;
+      opb_select = Reg;
+      opc_select = Reg;
+
+      x_issue_req_o.instr    = inst_data_i;
+      x_issue_req_o.id       = xif_offload_counter_q;
+      x_issue_req_o.hartid   = hart_id_i;
+
+      x_register_o.hartid    = hart_id_i;
+      x_register_o.id        = xif_offload_counter_q;
+      x_register_o.rs        = {opc, opb, opa};
+      x_register_o.rs_valid  = {~sb_q[rs3], ~sb_q[rs2], ~sb_q[rs1]};
+
+      x_commit_o.hartid      = hart_id_i;
+      x_commit_o.id          = xif_offload_counter_q;
+      // We do not speculate, so the commit_kill signal can be set statically to zero
+      x_commit_o.commit_kill = 1'b0;
+
+      // Since we cannot know whether a source register will be used or not by the processor,
+      // here we do not use valid_instr as in the other instructions
+      x_issue_valid_o         = inst_ready_i
+                              & inst_valid_o
+                              & ((itlb_valid & itlb_ready) | ~trans_active);
+
+      // Same as x_issue_valid since reigsters are provided instantly
+      x_register_valid_o      = x_issue_valid_o;
+
+      // Assert x_commit_valid as soon as there's a valid issue handshake
+      x_commit_valid_o        = x_issue_valid_o & x_issue_ready_i;
+
+      // Flag the instruction as illegal if not accepted by the coprocessor
+      illegal_inst = x_issue_ready_i & x_issue_valid_o & ~x_issue_resp_i.accept;
+    end
 
     // Sanitize illegal instructions so that they don't exert any side-effects.
     if (exception) begin
