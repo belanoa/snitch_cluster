@@ -163,6 +163,7 @@ module snitch_lsu #(
 
     // Tie CAQ interface
     assign caq_qready_o = '1;
+    assign caq_empty_o  = '1;
 
   end
 
