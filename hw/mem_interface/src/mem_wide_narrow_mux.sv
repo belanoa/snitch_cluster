@@ -108,7 +108,7 @@ module mem_wide_narrow_mux #(
     end
 
     // The ext port has the highest priority
-    if (any_ext_req) begin // The ext port has the second highest priority
+    if (any_ext_req) begin
       for (int i = 0; i < NrPorts; i++) begin
         out_req_o[i].q_valid = in_ext_req_i[i/NrPortsExt].q_valid;
         // Block access from narrow ports.
