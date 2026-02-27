@@ -92,7 +92,8 @@ module ${cfg['cluster']['name']}_wrapper (
   // External core events
   input snitch_pkg::core_events_t [${actual_nr_external_cores}-1:0]            core_events_i,
   // External cluster interrrupts
-  output logic [${actual_nr_external_cores}-1:0]                   cl_interrupt_o
+  output logic [${actual_nr_external_cores}-1:0]                   cl_interrupt_o,
+  output pace_param_t                   pace_param_o
 );
 
   localparam int unsigned NumIntOutstandingLoads [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_loads')}};
@@ -142,6 +143,7 @@ module ${cfg['cluster']['name']}_wrapper (
     .hive_rsp_t (${cfg['cluster']['name']}_pkg::hive_rsp_t),
     .acc_req_t (${cfg['cluster']['name']}_pkg::acc_req_t),
     .acc_resp_t (${cfg['cluster']['name']}_pkg::acc_resp_t),
+    .pace_param_t (${cfg['cluster']['name']}_pkg::pace_param_t),
     .NrHives (${cfg['cluster']['nr_hives']}),
     .NrCores (${cfg['cluster']['nr_cores']}),
     .NrExtCores (${cfg['cluster']['nr_external_cores']}),
@@ -150,6 +152,8 @@ module ${cfg['cluster']['name']}_wrapper (
     .PaceMemorySize (snitch_cluster_pkg::PaceMemorySize),
     .PaceDegree (${cfg['cluster']['pace_degree']}),
     .PaceParts (${cfg['cluster']['pace_parts']}),
+    .PaceDataWidth (${cfg['cluster']['name']}_pkg::PaceDataWidth),
+    .PaceEps (${cfg['cluster']['name']}_pkg::PaceEps),
     .ExtMemorySize (snitch_cluster_pkg::ExtMemorySize),
     .BootRomSize (snitch_cluster_pkg::BootromSize),
     .ClusterPeriphSize (snitch_cluster_pkg::ClusterPeriphSize),
@@ -318,6 +322,7 @@ module ${cfg['cluster']['name']}_wrapper (
 % endif
     .barrier_o,
     .hive_rsp_o,
-    .cl_interrupt_o
+    .cl_interrupt_o,
+    .pace_param_o
   );
 endmodule

@@ -84,6 +84,13 @@ package ${cfg['cluster']['name']}_pkg;
   localparam int unsigned XifDualread = 0;
   localparam int unsigned XifIssueRegisterSplit = 0;
 
+  localparam int unsigned PaceDegree = ${cfg['cluster']['pace_degree']};
+  localparam int unsigned PaceParts = ${cfg['cluster']['pace_parts']};
+  localparam int unsigned PaceDataWidth = 32;
+  localparam int unsigned PaceEps = 1;
+
+  typedef logic [((PaceDegree + 1) * PaceParts + PaceParts - 1 + 2*PaceEps) * PaceDataWidth] pace_param_t;
+
   localparam int unsigned Hive [NrCores+NrExtCores] = '{${core_cfg('hive')}};
 
   localparam int unsigned TcdmAddrWidth = $clog2(TcdmSize*1024);

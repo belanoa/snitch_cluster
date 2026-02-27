@@ -238,6 +238,8 @@ module snitch_cluster
   parameter type         x_register_t      = logic,
   parameter type         x_commit_t        = logic,
   parameter type         x_result_t        = logic,
+  // Pace types
+  parameter type         pace_param_t      = logic,
   // Memory latency parameter. Most of the memories have a read latency of 1. In
   // case you have memory macros which are pipelined you want to adjust this
   // value here. This only applies to the TCDM. The instruction cache macros will break!
@@ -340,7 +342,9 @@ module snitch_cluster
   // External core events
   input core_events_t [NrExtCores-1:0]              core_events_i,
   // External cluster interrrupts
-  output logic [NrExtCores-1:0]                     cl_interrupt_o
+  output logic [NrExtCores-1:0]                     cl_interrupt_o,
+  // Propagate PACE parameters
+  output pace_param_t                               pace_param_o
 );
   // ---------
   // Constants
@@ -802,7 +806,7 @@ module snitch_cluster
     .axi_resp_o (wide_axi_slv_rsp[ZeroMemory])
   );
 
-  logic [PaceParamWidth-1:0] pace_param;
+  pace_param_t pace_param;
 
   axi_pace_mem #(
     .axi_req_t (axi_slv_dma_req_t),
@@ -822,6 +826,8 @@ module snitch_cluster
     .axi_resp_o (wide_axi_slv_rsp[PaceMemory]),
     .pace_param_o(pace_param)
   );
+
+  assign pace_param_o = pace_param;
 
   addr_t ext_dma_req_q_addr_nontrunc;
 
