@@ -93,7 +93,7 @@ module ${cfg['cluster']['name']}_wrapper (
   input snitch_pkg::core_events_t [${actual_nr_external_cores}-1:0]            core_events_i,
   // External cluster interrrupts
   output logic [${actual_nr_external_cores}-1:0]                   cl_interrupt_o,
-  output pace_param_t                   pace_param_o
+  output ${cfg['cluster']['name']}_pkg::pace_param_t                   pace_param_o
 );
 
   localparam int unsigned NumIntOutstandingLoads [${cfg['cluster']['nr_cores']}] = '{${core_cfg('num_int_outstanding_loads')}};
